@@ -49,10 +49,11 @@ class MainWindow : public QMainWindow
 public:
     bool unsavedChanges;
     DFITAnalysis *dfitanalysis;
-    AnalysisWindow *analysiswindow;
+    QVector<AnalysisWindow*> analysiswindowV;
     Ui::MainWindow *ui;
     // QPlainTextEdit *textEdit;
     QString curFile;
+    // numAnalysisWindows = 0;
 
 
     // -------------------------------------------------------------------- //
@@ -61,11 +62,14 @@ public:
     // Constructor
     explicit MainWindow(QWidget *parent = 0);
 
-    // Loads and sets CSV to table
-    void loadCSV(const QString &fileName);
+    // Actions to perform after reading CSV
+    void loadCSV_actions();
 
     // Loads file
     void loadFile(const QString &fileName);
+
+    // Actions to take on injection time button clicked
+    void tinjButton_actions();
 
 protected:
     // Close window
@@ -90,6 +94,9 @@ private slots:
     // Shows about box
     void about();
 
+    // Shows about box
+    void help();
+
     // Holds if changes need to be saved (Needs Modification)
     void documentWasModified();
 
@@ -98,7 +105,7 @@ private slots:
     void commitData(QSessionManager &);
 #endif
 
-    // Actions to take on injection time button clicked
+    // Get input from dialog for injection time
     void on_tinjButton_clicked();
 
     // Actions to take on G-function button clicked

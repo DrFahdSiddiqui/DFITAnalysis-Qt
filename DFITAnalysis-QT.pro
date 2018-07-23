@@ -1,8 +1,24 @@
-#-------------------------------------------------
-#
-# Project created by QtCreator 2018-06-25T18:32:26
-#
-#-------------------------------------------------
+#############################################################################
+#                                                                           #
+#           DIAGNOSTIC FRACTURE INJECTION TESTS ANALYSIS PROGRAM            #
+#                               Version 1.0                                 #
+#            Written for C++ by : Fahd Siddiqui and Aqsa Qureshi            #
+#             https://github.com/DrFahdSiddiqui/DFITAnalysis-QT             #
+#                                                                           #
+# ------------------------------------------------------------------------- #
+# LICENSE: MOZILLA 2.0                                                      #
+#   This Source Code Form is subject to the terms of the Mozilla Public     #
+#   License, v. 2.0. If a copy of the MPL was not distributed with this     #
+#   file, You can obtain one at http://mozilla.org/MPL/2.0/.                #
+#############################################################################
+
+#############################################################################
+# DOCUMENTATION                                                             #
+#   QT Creator project file containing paths and names to images            #
+#############################################################################
+
+
+#############################################################################
 
 QT       += core gui
 
@@ -24,6 +40,11 @@ DEFINES += QT_DEPRECATED_WARNINGS
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
+# Defines whether to use Eigen library. Eigen does not work in Windows
+DEFINES += "USE_EIGEN=\"0\""
+
+RESOURCES     = resources/resources.qrc
+
 
 SOURCES += \
         src/main.cpp \
@@ -42,7 +63,8 @@ HEADERS += \
         header/dfitanalysis.h \
         header/analysiswindow.h \
         include/qcustomplot/qcustomplot.h \
-        include/FSHelper/fshelper.h
+        include/FSHelper/fshelper.h \
+        resources/programstrings.h
 
 
 INCLUDEPATH += \
@@ -53,5 +75,10 @@ FORMS += \
         forms/mainwindow.ui \
         forms/analysiswindow.ui
 
-#CONFIG += \
-#        console
+QMAKE_CXXFLAGS +=   -O3 \
+                    -Ofast
+
+RC_ICONS = resources/images/DFIT.ico
+
+
+#############################################################################

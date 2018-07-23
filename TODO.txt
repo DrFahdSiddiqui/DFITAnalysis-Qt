@@ -1,0 +1,10 @@
+Display xclosure on GFN/ SRT etc
+Give option to export data as csv for GFN/SRT
+
+Give extensions
+Write about section
+Make header for .pro file
+Make header for resources.qrc file
+
+
+Code reusability for plots, axes ranges, saving etc

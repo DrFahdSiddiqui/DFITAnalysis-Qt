@@ -77,20 +77,22 @@ public:
     {
         unsigned long pos;
 
-        QCPGraph *pressPlot = NULL;
-        QCPGraph *logDerPlot = NULL;
-        QCPGraph *derPlot = NULL;
-        QCPGraph *vericalLine = NULL;
+        QCPGraph *pressPlot;
+        QCPGraph *logDerPlot;
+        QCPGraph *derPlot;
+        QCPGraph *vericalLine;
 
-        QCPItemText *presLabel = NULL;
-        QCPItemText *logDerLabel = NULL;
-        QCPItemText *derLabel = NULL;
+        QCPItemText *presLabel;
+        QCPItemText *logDerLabel;
+        QCPItemText *derLabel;
     };
     DataCursor dtcrsr;
 
+    QCPItemText *closureLabel;
+
     // Straight line through origin and vertical line for closure handles
-    QCPGraph *stLnPlot = NULL;
-    QCPGraph *clsrPtPlot = NULL;
+    QCPGraph *stLnPlot;
+    QCPGraph *clsrPtPlot;
 
     // Pressure and derivative plot handles
     QCPGraph *pressPlot;
@@ -98,8 +100,9 @@ public:
     QCPGraph *derPlot;
 
     // Closure pressure and time
-    double pClosure = 1.0;
-    double tClosure = 1.0;
+    double pClosure = 0.0;
+    double tClosure = 0.0;
+    double xClosure = 0.0;
 
 
     // -------------------------------------------------------------------- //
@@ -107,6 +110,9 @@ public:
 public:
     // Constructor
     BCAnalysis(QCustomPlot *fig, DFITAnalysis *dfitanalysis);
+
+    // Destructor
+    ~BCAnalysis();
 
     // Calculates smooth derivatives over the window
     void calculateDerivatives();

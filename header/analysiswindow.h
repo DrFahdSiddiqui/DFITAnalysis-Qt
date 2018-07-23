@@ -26,6 +26,7 @@
 
 #include <QMainWindow>
 #include "bcanalysis.h"
+#include "resources/programstrings.h"
 
 namespace Ui {
 class AnalysisWindow;
@@ -43,6 +44,9 @@ class AnalysisWindow : public QMainWindow
 public:
     BCAnalysis* bcanalysis;
     QCPItemText *closureLabel = NULL;
+    int selector;
+    QVector<AnalysisWindow*> *analysiswindowV;
+    int windowNum = 0;
 
 private:
     Ui::AnalysisWindow *ui;
@@ -53,14 +57,27 @@ private:
 public:
     // Constructor
     AnalysisWindow(DFITAnalysis* dfitanalysis,
-                   int selector, QWidget *parent=0);
+                   int selector, QVector<AnalysisWindow *> &analysiswindowV, QWidget *parent=0);
 
     // Destructor
     ~AnalysisWindow();
 
+    // Show gray vertical line
+    void vLinePlot_vline(QVector<double> xdata, QVector<double> ydata);
+
+    // Adding label to display pclosure on plot
+    void vLinePlot_label();
+
+protected:
+    // Close window
+    void closeEvent(QCloseEvent *event) override;
+
 private:
     // Saves figure as jpg
     bool saveFig(const QString &fileName);
+
+    // Saves figure as jpg
+    bool saveCsv(const QString &fileName);
 
 private slots:
     // Gets new smoothing window and replots
@@ -75,7 +92,7 @@ private slots:
     // Draws the straight line thru origin on click
     void stLinePlot(QMouseEvent *event);
 
-    // Draws the vertical line for closure
+    // Draws the vertical line for closure and displays values on plot
     void vLinePlot(QMouseEvent *event);
 
     // Set xmin range
@@ -105,6 +122,7 @@ private slots:
     // Save the figure as a jpg button
     void on_saveJpgButton_clicked();
 
+    void on_exportCsvButton_clicked();
 };
 
 

@@ -57,19 +57,19 @@ public:
     QVector<double> p_shut;
 
     QCustomPlot* fig;
-    QCPAxis* xaxis = NULL;
-    QCPAxis* yaxis1 = NULL;
-    QCPAxis* yaxis2 = NULL;
+    QCPAxis* xaxis;
+    QCPAxis* yaxis1;
+    QCPAxis* yaxis2;
 
 
     struct DataCursor
     {
-        QCPGraph *presTime = NULL;
-        QCPGraph *rateTime = NULL;
-        QCPGraph *vericalLine = NULL;
+        QCPGraph *presTime;
+        QCPGraph *rateTime;
+        QCPGraph *vericalLine;
 
-        QCPItemText *presTimeLabel = NULL;
-        QCPItemText *rateTimeLabel = NULL;
+        QCPItemText *presTimeLabel;
+        QCPItemText *rateTimeLabel;
     };
     DataCursor dtcrsr;
 
