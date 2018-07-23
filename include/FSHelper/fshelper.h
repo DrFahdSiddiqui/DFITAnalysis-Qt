@@ -24,13 +24,20 @@
 #ifndef FSHELPER_H
 #define FSHELPER_H
 
+#ifndef USE_EIGEN
+#define USE_EIGEN 0
+#endif
+
 #include <QVector>
 #include <QFileInfo>
 #include <QTextStream>
+
+#ifndef USE_EIGEN
 #include "Eigen/Dense"
 #include "Eigen/Cholesky"
 
 using namespace Eigen;
+#endif
 using namespace std;
 
 

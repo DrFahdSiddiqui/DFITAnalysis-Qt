@@ -66,6 +66,7 @@ unsigned long FSHelper::find(vector<double> &v, double value){
 }
 
 
+#ifndef USE_EIGEN
 // ------------------------------------------------------------------------ //
 // Computes smooth derivatives around the window using QVectors using Eigen
 //   Inputs     :   Qvector Xv, Qvector Yv, unsigned long dwindow
@@ -99,7 +100,7 @@ void FSHelper::smoothDerivative(QVector<double>& Xv, QVector<double>& Yv,
     }
 
 }
-
+#endif
 
 // ------------------------------------------------------------------------ //
 // Computes smooth derivatives around the window using std vector w/o Eigen
@@ -197,7 +198,7 @@ void FSHelper::readCsv(QString filename, unsigned long skipRows,
     QStringList lines = in.readAll().split('\n');
     for (int i = skipRows; i < lines.size(); ++i){ // [2]
         auto row_string = lines.at(i).split(splitChar, QString::SkipEmptyParts);
-        if(row_string.size() < 1) // TODO: skip if file is less than 3 columns
+        if(row_string.size() < 3) // TODO: skip if file is less than 3 columns
             continue;
         t.push_back(row_string[0].toDouble());
         p.push_back(row_string[1].toDouble());
