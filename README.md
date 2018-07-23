@@ -35,7 +35,7 @@ Git clone or download all files. Open the DFITAnalysis.pro file with Qt-Creator.
 3. MSVC on Windows 7 (Qt-Creator)
 
 ### Open Source
-This program is released as open source under Mozilla Public License (MPL) v2. The complete source code may be obtained from
+This program is released as open source under Mozilla Public License (MPL) v2. The complete source code may be obtained from https://github.com/DrFahdSiddiqui/DFITAnalysis-Qt .
 
 It uses following:
 1. Qt 5.11 https://www.qt.io/ (GNU GPL v3)
