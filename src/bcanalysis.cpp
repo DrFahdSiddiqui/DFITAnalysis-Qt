@@ -23,6 +23,9 @@
 /****************************************************************************/
 
 #include "bcanalysis.h"
+#ifndef USE_EIGEN
+#define USE_EIGEN 0
+#endif
 
 
 // ------------------------------------------------------------------------ //
@@ -37,23 +40,40 @@ BCAnalysis::BCAnalysis(QCustomPlot *fig, DFITAnalysis* dfitanalysis)
 
 
 // ------------------------------------------------------------------------ //
+// Destructor
+BCAnalysis::~BCAnalysis()
+{
+    x.clear(); x.squeeze();
+    dx.clear(); dx.squeeze();
+    xdx.clear(); xdx.squeeze();
+    disconnect(fig, 0, 0, 0);
+
+    fig->clearGraphs();
+    fig->clearItems();
+    fig->clearPlottables();
+}
+
+
+// ------------------------------------------------------------------------ //
 // Calculates smooth derivatives over the window
 void BCAnalysis::calculateDerivatives()
 {
     dx.clear(); dx.squeeze();
     xdx.clear(); xdx.squeeze();
 
-    // Without Eigen library
-    /*
-    vector<double> xvarV   =  xvar.toStdVector();
-    vector<double> p_shutV =  dfitanalysis->p_shut.toStdVector();
-    vector<double> dxV     =  dx.toStdVector();
-    FSHelper::smoothDerivative(xvarV, p_shutV, dwindow, dxV);
-    dx = QVector<double>::fromStdVector(dxV);
-    */
-
+#ifndef USE_EIGEN
     // With Eigen library
     FSHelper::smoothDerivative(x, dfitanalysis->p_shut, dwindow, dx);
+
+#else
+    // Without Eigen library
+    vector<double> xV   =  x.toStdVector();
+    vector<double> p_shutV =  dfitanalysis->p_shut.toStdVector();
+    vector<double> dxV     =  dx.toStdVector();
+    FSHelper::smoothDerivative(xV, p_shutV, dwindow, dxV);
+    dx = QVector<double>::fromStdVector(dxV);
+
+#endif
 
     for (unsigned long i = 0; i<dfitanalysis->tD.size();++i){
         xdx.push_back (x[i]*dx[i]);
@@ -65,7 +85,6 @@ void BCAnalysis::calculateDerivatives()
 // Sets up a blank 3 yaxis figure
 void BCAnalysis::threeAxesFigure()
 {
-    this->fig = fig;
     fig->plotLayout()->clear();
     fig->setCurrentLayer("main");
 
@@ -82,21 +101,6 @@ void BCAnalysis::threeAxesFigure()
     yaxis1 = rectAxes->axis(QCPAxis::atLeft, 0);
     yaxis2 = rectAxes->axis(QCPAxis::atRight, 0);
     yaxis3 = rectAxes->axis(QCPAxis::atRight, 1);
-
-    /*
-  // synchronize the left and right margins of the top and bottom axis rects:
-  //    QCPMarginGroup *marginGroup = new QCPMarginGroup(fig);
-  //    rectAxes->setMarginGroup(QCP::msLeft | QCP::msRight, marginGroup);
-  // move newly created axes on "axes" layer and grids on "grid" layer:
-  //    foreach (QCPAxisRect *rect, fig->axisRects())
-  //    {
-  //      foreach (QCPAxis *axis, rect->axes())
-  //      {
-  //        axis->setLayer("axes");
-  //        axis->grid()->setLayer("grid");
-  //      }
-  //    }
-  */
 
     // Create and configure plots:
     pressPlot = fig->addGraph(xaxis, yaxis1);
@@ -127,18 +131,72 @@ void BCAnalysis::threeAxesFigure()
     // Insert plot rect in second row (because of title)
     fig->plotLayout()->addElement(1, 0, rectAxes);
 
-    // Add Analysis Lines layer (because it will be updated)
-    fig-> QCustomPlot::addLayer("analysisLines");
-    fig->layer("analysisLines")->setMode(QCPLayer::lmBuffered);
-
     // Add annotation layer (because it will be updated)
     fig-> QCustomPlot::addLayer("annotations");
     fig->layer("annotations")->setMode(QCPLayer::lmBuffered);
-    // fig->replot();
+    fig->setCurrentLayer("annotations");
+
+    // Show pressure data cursor
+    dtcrsr.pressPlot = fig->addGraph(xaxis, yaxis1);
+
+    // Show x.dp/dx data cursor
+    dtcrsr.logDerPlot = fig->addGraph(xaxis, yaxis2);
+
+    // Show dp/dx data cursor
+    dtcrsr.derPlot = fig->addGraph(xaxis, yaxis3);
+
+    // Show gray vertical line
+    dtcrsr.vericalLine = fig->addGraph(xaxis, yaxis1);
+
+    // Show pressure data reading
+    dtcrsr.presLabel = new QCPItemText(fig);
+    dtcrsr.presLabel->setPositionAlignment(Qt::AlignBottom|Qt::AlignLeft);
+    dtcrsr.presLabel->position->setType(QCPItemPosition::ptPlotCoords);
+    dtcrsr.presLabel->position->setAxes(xaxis, yaxis1);
+    dtcrsr.presLabel->setFont(QFont("sans", 8));
+    dtcrsr.presLabel->setColor(yColor);
+    dtcrsr.presLabel->setPadding(QMargins(10, 0, 0, 10));
+    dtcrsr.presLabel->setClipToAxisRect(false);
+
+    // Show x.dp/dx data reading
+    dtcrsr.logDerLabel = new QCPItemText(fig);
+    dtcrsr.logDerLabel->setPositionAlignment(Qt::AlignBottom|Qt::AlignLeft);
+    dtcrsr.logDerLabel->position->setType(QCPItemPosition::ptPlotCoords);
+    dtcrsr.logDerLabel->position->setAxes(xaxis, yaxis2);
+    dtcrsr.logDerLabel->setFont(QFont("sans", 8));
+    dtcrsr.logDerLabel->setColor(xdxColor);
+    dtcrsr.logDerLabel->setPadding(QMargins(10, 0, 0, 10));
+    dtcrsr.logDerLabel->setClipToAxisRect(false);
+
+    // Show dp/dx data reading
+    dtcrsr.derLabel = new QCPItemText(fig);
+    dtcrsr.derLabel->setPositionAlignment(Qt::AlignBottom|Qt::AlignLeft);
+    dtcrsr.derLabel->position->setType(QCPItemPosition::ptPlotCoords);
+    dtcrsr.derLabel->position->setAxes(xaxis, yaxis3);
+    dtcrsr.derLabel->setFont(QFont("sans", 8));
+    dtcrsr.derLabel->setColor(dxColor);
+    dtcrsr.derLabel->setPadding(QMargins(10, 0, 0, 10));
+    dtcrsr.derLabel->setClipToAxisRect(false);
+
+    // Add vertical line for the closure
+    clsrPtPlot = fig->addGraph(xaxis, yaxis2);
+
+    // Show gray line throug origin
+    stLnPlot = fig->addGraph(xaxis, yaxis2);
+
+    // Adds closure label
+    closureLabel = new QCPItemText(fig);
+    closureLabel->setPositionAlignment(Qt::AlignHCenter | Qt::AlignTop);
+    closureLabel->position->setType(QCPItemPosition::ptAxisRectRatio);
+    closureLabel->setFont(QFont("sans", 10));
+    closureLabel->setColor(Qt::black);
+    closureLabel->setPadding(QMargins(10, 10, 10, 10));
+    closureLabel->setClipToAxisRect(false);
+    closureLabel->setBrush(Qt::white);
+    closureLabel->position->setCoords(0.5,0);
+    closureLabel->setVisible(false);
 
     QObject::connect(fig, SIGNAL(mouseMove(QMouseEvent*)), this , SLOT(dataCursorPlot(QMouseEvent*)));
-    // QObject::connect(fig, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(dataCursorPlot(QMouseEvent*)));
-    // QObject::connect(fig, SIGNAL(mouseDoubleClick(QMouseEvent*)), this, SLOT(showPointToolTip(QMouseEvent*)));
 }
 
 
@@ -147,9 +205,9 @@ void BCAnalysis::threeAxesFigure()
 void BCAnalysis::plotData()
 {
     fig->setCurrentLayer("main");
-    pressPlot->setData(x, dfitanalysis->p_shut);
-    logDerPlot->setData(x, xdx);
-    derPlot->setData(x, dx);
+    pressPlot->setData(x, dfitanalysis->p_shut, true);
+    logDerPlot->setData(x, xdx, true);
+    derPlot->setData(x, dx, true);
 
     // Rescale axes
     xaxis->rescale();
@@ -243,101 +301,54 @@ void BCAnalysis::dataCursorPlot(QMouseEvent *event)
     QVector<double> dx_crsr;
     QVector<double> v_crsr;
 
-    x_crsr.push_back(x[dtcrsr.pos]);
+    // To update just the annotations layer
+    fig->setCurrentLayer("annotations");
+
     x_crsr.push_back(x[dtcrsr.pos]);
     y_crsr.push_back(dfitanalysis->p_shut[dtcrsr.pos]);
     xdx_crsr.push_back(xdx[dtcrsr.pos]);
     dx_crsr.push_back(dx[dtcrsr.pos]);
     v_crsr.push_back(yaxis1->range().lower);
-    v_crsr.push_back(yaxis1->range().upper);
 
-    // To update just the annotations layer
-    fig->setCurrentLayer("annotations");
 
-    // Show gray vertical line
-    if(dtcrsr.vericalLine == NULL){
-        dtcrsr.vericalLine = fig->addGraph(xaxis, yaxis1);
-        // fig->replot();
-    }
-    dtcrsr.vericalLine->setData( x_crsr, v_crsr );
-    dtcrsr.vericalLine->setPen(QPen(Qt::gray, 1));
-    dtcrsr.vericalLine->setPen(QPen(Qt::DashLine));
 
     // Show pressure data cursor
-    if(dtcrsr.pressPlot == NULL){
-        dtcrsr.pressPlot = fig->addGraph(xaxis, yaxis1);
-        // fig->replot();
-    }
-    dtcrsr.pressPlot->setData( x_crsr, y_crsr );
+    dtcrsr.pressPlot->setData( x_crsr, y_crsr, true );
     dtcrsr.pressPlot->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle,
                                                       QPen(Qt::black),
                                                       QBrush(yColor),
                                                       10));
 
     // Show x.dp/dx data cursor
-    if(dtcrsr.logDerPlot == NULL){
-        dtcrsr.logDerPlot = fig->addGraph(xaxis, yaxis2);
-        // fig->replot();
-    }
-    dtcrsr.logDerPlot->setData( x_crsr, xdx_crsr );
+    dtcrsr.logDerPlot->setData( x_crsr, xdx_crsr, true );
     dtcrsr.logDerPlot->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle,
                                                        QPen(Qt::black),
                                                        QBrush(xdxColor),
                                                        10));
 
     // Show dp/dx data cursor
-    if(dtcrsr.derPlot == NULL){
-        dtcrsr.derPlot = fig->addGraph(xaxis, yaxis3);
-        // fig->replot();
-    }
-    dtcrsr.derPlot->setData( x_crsr, dx_crsr );
+    dtcrsr.derPlot->setData( x_crsr, dx_crsr, true );
     dtcrsr.derPlot->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle,
                                                     QPen(Qt::black),
                                                     QBrush(dxColor),
                                                     10));
 
+    // Show gray vertical line
+    x_crsr.push_back(x[dtcrsr.pos]);
+    v_crsr.push_back(yaxis1->range().upper);
+    dtcrsr.vericalLine->setData( x_crsr, v_crsr, true );
+    dtcrsr.vericalLine->setPen(QPen(Qt::gray, 1));
+    dtcrsr.vericalLine->setPen(QPen(Qt::DashLine));
+
     // Show pressure data reading
-    if(dtcrsr.presLabel == NULL){
-        dtcrsr.presLabel = new QCPItemText(fig);
-        dtcrsr.presLabel->setPositionAlignment(Qt::AlignBottom|Qt::AlignLeft);
-        dtcrsr.presLabel->position->setType(QCPItemPosition::ptPlotCoords);
-        dtcrsr.presLabel->position->setAxes(xaxis, yaxis1);
-        dtcrsr.presLabel->setFont(QFont("sans", 8));
-        dtcrsr.presLabel->setColor(yColor);
-        dtcrsr.presLabel->setPadding(QMargins(10, 0, 0, 10));
-        dtcrsr.presLabel->setClipToAxisRect(false);
-        // fig->replot();
-    }
     dtcrsr.presLabel->position->setCoords(x_crsr[0], y_crsr[0]);
     dtcrsr.presLabel->setText(QString("%1 , %2").arg(x_crsr[0]).arg(y_crsr[0]));
 
     // Show x.dp/dx data reading
-    if(dtcrsr.logDerLabel == NULL){
-        dtcrsr.logDerLabel = new QCPItemText(fig);
-        dtcrsr.logDerLabel->setPositionAlignment(Qt::AlignBottom|Qt::AlignLeft);
-        dtcrsr.logDerLabel->position->setType(QCPItemPosition::ptPlotCoords);
-        dtcrsr.logDerLabel->position->setAxes(xaxis, yaxis2);
-        dtcrsr.logDerLabel->setFont(QFont("sans", 8));
-        dtcrsr.logDerLabel->setColor(xdxColor);
-        dtcrsr.logDerLabel->setPadding(QMargins(10, 0, 0, 10));
-        dtcrsr.logDerLabel->setClipToAxisRect(false);
-        // fig->replot();
-    }
     dtcrsr.logDerLabel->position->setCoords(x_crsr[0], xdx_crsr[0]);
     dtcrsr.logDerLabel->setText(QString("%1 , %2").arg(x_crsr[0]).arg(xdx_crsr[0]));
 
     // Show dp/dx data reading
-    if(dtcrsr.derLabel == NULL){
-        dtcrsr.derLabel = new QCPItemText(fig);
-        dtcrsr.derLabel->setPositionAlignment(Qt::AlignBottom|Qt::AlignLeft);
-        dtcrsr.derLabel->position->setType(QCPItemPosition::ptPlotCoords);
-        dtcrsr.derLabel->position->setAxes(xaxis, yaxis3);
-        dtcrsr.derLabel->setFont(QFont("sans", 8));
-        dtcrsr.derLabel->setColor(dxColor);
-        dtcrsr.derLabel->setPadding(QMargins(10, 0, 0, 10));
-        dtcrsr.derLabel->setClipToAxisRect(false);
-        fig->replot();
-    }
     dtcrsr.derLabel->position->setCoords(x_crsr[0], dx_crsr[0]);
     dtcrsr.derLabel->setText(QString("%1 , %2").arg(x_crsr[0]).arg(dx_crsr[0]));
 

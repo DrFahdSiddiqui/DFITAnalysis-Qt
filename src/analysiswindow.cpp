@@ -32,11 +32,17 @@
 
 // ------------------------------------------------------------------------ //
 // Constructor
-AnalysisWindow::AnalysisWindow(DFITAnalysis* dfitanalysis, int selector, QWidget *parent) :
+AnalysisWindow::AnalysisWindow(DFITAnalysis* dfitanalysis, int selector,
+                               QVector<AnalysisWindow*> &analysiswindowV,
+                               QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::AnalysisWindow)
 {
     ui->setupUi(this);
+    this->selector = selector;
+    this->analysiswindowV = &analysiswindowV;
+    windowNum = analysiswindowV.size()-1;
+
     bcanalysis = new BCAnalysis(ui->fig, dfitanalysis);
 
     // Perform G-Function related calculations
@@ -60,9 +66,31 @@ AnalysisWindow::AnalysisWindow(DFITAnalysis* dfitanalysis, int selector, QWidget
 // Destructor
 AnalysisWindow::~AnalysisWindow()
 {
+    delete bcanalysis;
     delete ui;
 }
 
+
+// ------------------------------------------------------------------------ //
+// Close window
+void AnalysisWindow::closeEvent(QCloseEvent *event)
+{
+    // delete analysiswindowV[windowNum];
+    for (int i=0; i<analysiswindowV->size();++i)
+        if (i>windowNum)
+            analysiswindowV->at(i)->windowNum -=1;
+
+    // There will be a memory leak (I guess?) if Windows
+#ifndef _WIN32
+    delete analysiswindowV->at(windowNum);
+#else
+    delete bcanalysis;
+    delete ui;
+#endif
+
+    analysiswindowV->removeAt(windowNum);
+    event->accept();
+}
 
 // ------------------------------------------------------------------------ //
 // Gets new smoothing window and replots
@@ -93,13 +121,8 @@ void AnalysisWindow::on_dSmoothButton_clicked()
 // Connects the mouse to straight line drawing
 void AnalysisWindow::on_stLineButton_clicked()
 {
-    // Disconnect or not?
-    // Connect to another slot
-    // on click disconnect and finalize the line
     QObject::connect(bcanalysis->fig, SIGNAL(mouseMove(QMouseEvent*)), this , SLOT(stLinePlot(QMouseEvent*)));
     QObject::connect(bcanalysis->fig, SIGNAL(mouseRelease(QMouseEvent*)), this , SLOT(stLinePlot(QMouseEvent*)));
-
-
 }
 
 
@@ -117,12 +140,6 @@ void AnalysisWindow::stLinePlot(QMouseEvent *event)
     ydata.push_back(bcanalysis->yaxis2->pixelToCoord(event->pos().y()));
 
     bcanalysis->fig->setCurrentLayer("annotations");
-
-    // Show gray vertical line
-    if(bcanalysis->stLnPlot == NULL){
-        bcanalysis->stLnPlot = bcanalysis->fig->addGraph(bcanalysis->xaxis, bcanalysis->yaxis2);
-        bcanalysis->fig->replot();
-    }
 
     bcanalysis->stLnPlot->setData( xdata, ydata );
     bcanalysis->stLnPlot->setPen(QPen(Qt::black, 1.5));
@@ -146,7 +163,7 @@ void AnalysisWindow::on_vLineButton_clicked()
 
 
 // ------------------------------------------------------------------------ //
-// Draws the vertical line for closure
+// Draws the vertical line for closure and displays values on plot
 void AnalysisWindow::vLinePlot(QMouseEvent *event)
 {
     // BCAnalysis::stLinePlot(event);
@@ -162,38 +179,54 @@ void AnalysisWindow::vLinePlot(QMouseEvent *event)
     bcanalysis->fig->setCurrentLayer("annotations");
 
     // Show gray vertical line
-    if(bcanalysis->clsrPtPlot == NULL){
-        bcanalysis->clsrPtPlot = bcanalysis->fig->addGraph(bcanalysis->xaxis, bcanalysis->yaxis2);
-        bcanalysis->fig->replot();
-    }
-    bcanalysis->clsrPtPlot->setData( xdata, ydata);
-    bcanalysis->clsrPtPlot->setPen(QPen(Qt::black, 1.5));
-    bcanalysis->clsrPtPlot->setPen(QPen(Qt::DashLine));
+    vLinePlot_vline(xdata, ydata);
 
-    // bcanalysis->fig->layer("annotations")-> QCPLayer::replot();
+    // Lebel the plot on mouse release
     if(event->type()==QMouseEvent::MouseButtonRelease){
         bcanalysis->pClosure = bcanalysis->dfitanalysis->p_shut[bcanalysis->dtcrsr.pos];
         bcanalysis->tClosure = bcanalysis->dfitanalysis->tD[bcanalysis->dtcrsr.pos] * bcanalysis->dfitanalysis->tp;
+        bcanalysis->xClosure = bcanalysis->x[bcanalysis->dtcrsr.pos];
 
         // Adding label to display pclosure on plot
-        if(closureLabel == NULL){
-            closureLabel = new QCPItemText(bcanalysis->fig);
-            closureLabel->setPositionAlignment(Qt::AlignHCenter | Qt::AlignTop);
-            closureLabel->position->setType(QCPItemPosition::ptAxisRectRatio);
-            closureLabel->setFont(QFont("sans", 10));
-            closureLabel->setColor(Qt::black);
-            closureLabel->setPadding(QMargins(10, 10, 10, 10));
-            closureLabel->setClipToAxisRect(false);
-            closureLabel->setBrush(Qt::white);
-            bcanalysis->fig->replot();
-        }
-        closureLabel->position->setCoords(0.5,0);
-        // closureLabel->position->setCoords(bcanalysis->xvar[bcanalysis->dtcrsr.pos]*1.01, bcanalysis->pClosure);
-        closureLabel->setText(QString("Closure pressure = %1 psi \nClosure time = %2 sec").arg(bcanalysis->pClosure).arg(bcanalysis->tClosure));
-
+        vLinePlot_label();
         bcanalysis->fig->layer("annotations")-> QCPLayer::replot();
         disconnect(bcanalysis->fig, 0, this, SLOT(vLinePlot(QMouseEvent*)));
     }
+}
+
+
+// ------------------------------------------------------------------------ //
+// Show gray vertical line
+void AnalysisWindow::vLinePlot_vline(    QVector<double> xdata, QVector<double> ydata)
+{
+    bcanalysis->fig->setCurrentLayer("annotations");
+
+    bcanalysis->clsrPtPlot->setData( xdata, ydata);
+    bcanalysis->clsrPtPlot->setPen(QPen(Qt::black, 1.5));
+    bcanalysis->clsrPtPlot->setPen(QPen(Qt::DashLine));
+}
+
+
+// ------------------------------------------------------------------------ //
+// Adding label to display pclosure on plot
+void AnalysisWindow::vLinePlot_label()
+{
+    if (selector == 0)
+        bcanalysis->closureLabel->setText(QString("Closure pressure = %1 psi "
+                                                  "\nClosure time = %2 sec "
+                                                  "\nClosure G = %3 ")
+                                          .arg(bcanalysis->pClosure)
+                                          .arg(bcanalysis->tClosure)
+                                          .arg(bcanalysis->xClosure));
+    if (selector == 1)
+        bcanalysis->closureLabel->setText(QString("Closure pressure = %1 psi "
+                                                  "\nClosure time = %2 sec "
+                                                  "\nClosure tD^1/2 = %3 ")
+                                          .arg(bcanalysis->pClosure)
+                                          .arg(bcanalysis->tClosure)
+                                          .arg(bcanalysis->xClosure));
+
+    bcanalysis->closureLabel->setVisible(true);
 }
 
 
@@ -364,6 +397,7 @@ void AnalysisWindow::on_saveJpgButton_clicked()
     QFileDialog dialog(this);
     dialog.setWindowModality(Qt::WindowModal);
     dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setNameFilter(tr("JPG (*.jpg)"));
     if (dialog.exec() != QDialog::Accepted)
         return;
     saveFig(dialog.selectedFiles().first());
@@ -383,7 +417,6 @@ bool AnalysisWindow::saveFig(const QString &fileName)
         return false;
     }
 
-    //QTextStream out(&file);
 #ifndef QT_NO_CURSOR
     QApplication::setOverrideCursor(Qt::WaitCursor);
 #endif
@@ -394,7 +427,75 @@ bool AnalysisWindow::saveFig(const QString &fileName)
     QApplication::restoreOverrideCursor();
 #endif
 
-    statusBar()->showMessage(tr("File saved as jpg"), 2000);
+    statusBar()->showMessage(tr("Figure saved as jpg"), 2000);
+    return true;
+}
+
+
+// ------------------------------------------------------------------------ //
+// Exports figure as csv
+void AnalysisWindow::on_exportCsvButton_clicked()
+{
+    QFileDialog dialog(this);
+    dialog.setWindowModality(Qt::WindowModal);
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    saveCsv(dialog.selectedFiles().first());
+}
+
+
+// ------------------------------------------------------------------------ //
+// Exports figure as csv
+bool AnalysisWindow::saveCsv(const QString &fileName)
+{
+    QFile file(fileName);
+    if (!file.open(QFile::WriteOnly | QFile::Text)) {
+        QMessageBox::warning(this, tr("Application"),
+                             tr("Cannot write file %1:\n%2.")
+                             .arg(QDir::toNativeSeparators(fileName),
+                                  file.errorString()));
+        return false;
+    }
+    QTextStream out(&file);
+#ifndef QT_NO_CURSOR
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+#endif
+    // Write file header 23 rows
+    out << headerString;
+    // Write export documentation header
+    out << exportCsvDocString << endl;
+    // Write version number on line 24 this will be checked when loading
+    out << versionString << endl;
+
+    if (bcanalysis->tClosure != 0.0)
+    {
+        out << endl << "Results" << endl;
+        out << "pClosure = " << bcanalysis->pClosure << endl;
+        out << "tClosure = " << bcanalysis->tClosure << endl;
+    }
+    if (selector == 0){
+        if (bcanalysis->tClosure != 0.0)
+            out << "GClosure = " << bcanalysis->xClosure;
+        out << endl << "G, p_shut, G.dp/dG, dp/dG" << endl;
+    }
+    if (selector == 1){
+        if (bcanalysis->tClosure != 0.0)
+            out << "tD^1/2Closure = " << bcanalysis->xClosure;
+        out << endl << "tD^1/2, p_shut, tD^1/2.dp/dtD^1/2, dp/dtD^1/2" << endl;
+    }
+    // Writing t p r table csv
+    for (unsigned long i=0; i<bcanalysis->x.size(); ++i){
+        out << bcanalysis->x[i] << ", "
+            << bcanalysis->dfitanalysis->p_shut[i] << ", "
+            << bcanalysis->xdx[i] << ", "
+            << bcanalysis->dx[i] << endl;
+    }
+#ifndef QT_NO_CURSOR
+    QApplication::restoreOverrideCursor();
+#endif
+
+    statusBar()->showMessage(tr("Exported data as csv"), 2000);
     return true;
 }
 

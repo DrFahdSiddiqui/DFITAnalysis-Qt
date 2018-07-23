@@ -32,6 +32,7 @@
 #include <QtWidgets>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "resources/programstrings.h"
 
 
 // ------------------------------------------------------------------------ //
@@ -42,7 +43,9 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    setWindowTitle("DFIT Analysis");
+    setWindowTitle(versionString);
+    // setWindowTitle(setText(tr(versionString)));
+    setWindowIcon(QIcon(":images/logo.png"));
 
     // Sets column header labels
     ui->tableWidget->setHorizontalHeaderItem(0, new QTableWidgetItem("Time\n[secs]"));
@@ -52,7 +55,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tinjLabel->setText("   t<sub>inj</sub> = ");
 
     // Make sure to delete or find a better way
-    dfitanalysis = new DFITAnalysis::DFITAnalysis(ui->tprPlot);
+    dfitanalysis = new DFITAnalysis(ui->tprPlot);
 
     this->unsavedChanges = true;
 
@@ -60,9 +63,6 @@ MainWindow::MainWindow(QWidget *parent) :
     createStatusBar();
 
     readSettings();
-    // Connect the editable parts to this
-    //    connect(textEdit->document(), &QTextDocument::contentsChanged,
-    //            this, &MainWindow::documentWasModified);
 
 #ifndef QT_NO_SESSIONMANAGER
     QGuiApplication::setFallbackSessionManagementEnabled(false);
@@ -81,6 +81,10 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     if (maybeSave()) {
         writeSettings();
+        resetEverything();
+        if (dfitanalysis)
+            delete dfitanalysis;
+        dfitanalysis = NULL;
         QApplication::closeAllWindows();
         event->accept();
     } else {
@@ -94,13 +98,9 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::newFile()
 {
     if (maybeSave()) {
-        // Clear Out and reset all here
-
-
         // Resetting
         resetEverything();
 
-        // TODO: Reset the plot as well
         setCurrentFile(QString());
     }
 }
@@ -111,9 +111,11 @@ void MainWindow::newFile()
 void MainWindow::open()
 {
     if (maybeSave()) {
-        QString fileName = QFileDialog::getOpenFileName(this);
+        QString fileName = QFileDialog::getOpenFileName(this, NULL, NULL,
+                                                        tr("DFITFiles (*.dft)"));
         if (!fileName.isEmpty())
-            loadFile(fileName);
+            resetEverything();
+        loadFile(fileName);
     }
 }
 
@@ -123,9 +125,18 @@ void MainWindow::open()
 void MainWindow::load()
 {
     QString fileName = QFileDialog::getOpenFileName(this);
-    if (!fileName.isEmpty())
-        loadCSV(fileName);
-    int dummy; dummy =0;
+    if (!fileName.isEmpty()){
+        resetEverything();
+        statusBar()->showMessage(tr("Loading file..."), 2000); // show number of lines read
+        // Load data from file to memory
+        FSHelper::readCsv(fileName, 1, dfitanalysis->t, dfitanalysis->p, dfitanalysis->r);
+
+        loadCSV_actions();
+
+        statusBar()->showMessage(tr("File loaded and plotted"), 2000); // show number of lines read
+
+        unsavedChanges = true;
+    }
 }
 
 
@@ -148,6 +159,7 @@ bool MainWindow::saveAs()
     QFileDialog dialog(this);
     dialog.setWindowModality(Qt::WindowModal);
     dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setNameFilter(tr("DFITFiles (*.dft)"));
     if (dialog.exec() != QDialog::Accepted)
         return false;
     return saveFile(dialog.selectedFiles().first());
@@ -155,22 +167,66 @@ bool MainWindow::saveAs()
 
 
 // ------------------------------------------------------------------------ //
-// Shows about box (Needs Modification, low priority)
+// Shows about box
 void MainWindow::about()
 {
-    QMessageBox::about(this, tr("About Application"),
-                       tr("The <b>Application</b> example demonstrates how to "
-                          "write modern GUI applications using Qt, with a menu bar, "
-                          "toolbars, and a status bar."));
+    //    QMessageBox::about(this, tr("About Application"),
+    //                       tr(aboutString));
+
+    QMessageBox aboutBox;
+
+    aboutBox.setText(tr(aboutString));
+    aboutBox.setWindowTitle(versionString);
+    aboutBox.setStandardButtons(QMessageBox::Ok);
+
+    QPixmap myPixmap(QPixmap(":images/icon.png").scaled(80, 80, Qt::KeepAspectRatio));
+    aboutBox.setIconPixmap(myPixmap);
+
+    // about.setIconPixmap(QPixmap(":images/icon.png"));   // here is the error
+    aboutBox.setDefaultButton(QMessageBox::Ok);
+    aboutBox.show();
+    aboutBox.exec();
 }
 
 
 // ------------------------------------------------------------------------ //
-// Holds if changes need to be saved (Needs Modification)
+// Shows help box
+void MainWindow::help()
+{
+    QDialog helpDialog;
+    QScrollArea helpScroll;
+    QVBoxLayout helpLayout;
+    QLabel helpText;
+    QLabel iconImage;
+
+    helpDialog.setWindowTitle(versionString);
+    helpDialog.setWindowIcon(QIcon(":image/icon.png") );
+
+    helpScroll.setMinimumHeight(300);
+    helpScroll.setMinimumWidth(200);
+    helpScroll.setWidgetResizable(true);
+    helpScroll.setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);
+    helpScroll.setWidget(&helpText);
+
+    helpText.setText(tr(helpString));
+    helpText.setWordWrap(true);
+
+    iconImage.setPixmap(QPixmap(QPixmap(":images/icon.png").scaled(80, 80, Qt::KeepAspectRatio)));
+    iconImage.setAlignment(Qt::AlignHCenter);
+
+    helpLayout.addWidget(&iconImage);
+    helpLayout.addWidget(&helpScroll);
+
+    helpDialog.setLayout(&helpLayout);
+    helpDialog.exec();
+}
+
+
+// ------------------------------------------------------------------------ //
+// Holds if changes need to be saved
 void MainWindow::documentWasModified()
 {
     setWindowModified(this->unsavedChanges);
-    //setWindowModified(textEdit->document()->isModified());
     return;
 }
 
@@ -181,7 +237,9 @@ void MainWindow::createActions()
 {
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
     QToolBar *fileToolBar = addToolBar(tr("File"));
-    const QIcon newIcon = QIcon::fromTheme("document-new", QIcon(":/images/new.png"));
+
+    // New
+    const QIcon newIcon = QIcon(":images/new.png");
     QAction *newAct = new QAction(newIcon, tr("&New"), this);
     newAct->setShortcuts(QKeySequence::New);
     newAct->setStatusTip(tr("Create a new file"));
@@ -189,16 +247,8 @@ void MainWindow::createActions()
     fileMenu->addAction(newAct);
     fileToolBar->addAction(newAct);
 
-    // FS Load CSV
-    const QIcon loadIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
-    QAction *loacAct = new QAction(loadIcon, tr("&Load CSV..."), this);
-    //    loacAct->setShortcuts(QKeySequence::Open);
-    loacAct->setStatusTip(tr("Load time, pressure and rate data from CSV file"));
-    connect(loacAct, &QAction::triggered, this, &MainWindow::load);
-    fileMenu->addAction(loacAct);
-    fileToolBar->addAction(loacAct);
-
-    const QIcon openIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
+    // Open action and icon
+    const QIcon openIcon = QIcon(":images/open.png");
     QAction *openAct = new QAction(openIcon, tr("&Open..."), this);
     openAct->setShortcuts(QKeySequence::Open);
     openAct->setStatusTip(tr("Open an existing file"));
@@ -206,7 +256,17 @@ void MainWindow::createActions()
     fileMenu->addAction(openAct);
     fileToolBar->addAction(openAct);
 
-    const QIcon saveIcon = QIcon::fromTheme("document-save", QIcon(":/images/save.png"));
+    // Load CSV
+    const QIcon loadIcon = QIcon(":images/csv.png");
+    QAction *loacAct = new QAction(loadIcon, tr("&Load CSV..."), this);
+    //    loacAct->setShortcuts(QKeySequence::Open);
+    loacAct->setStatusTip(tr("Load time, pressure and rate data from CSV file"));
+    connect(loacAct, &QAction::triggered, this, &MainWindow::load);
+    fileMenu->addAction(loacAct);
+    fileToolBar->addAction(loacAct);
+
+    // Save
+    const QIcon saveIcon = QIcon(":images/save.png");
     QAction *saveAct = new QAction(saveIcon, tr("&Save"), this);
     saveAct->setShortcuts(QKeySequence::Save);
     saveAct->setStatusTip(tr("Save the document to disk"));
@@ -214,7 +274,7 @@ void MainWindow::createActions()
     fileMenu->addAction(saveAct);
     fileToolBar->addAction(saveAct);
 
-    const QIcon saveAsIcon = QIcon::fromTheme("document-save-as");
+    const QIcon saveAsIcon = QIcon(":images/saveas.png");
     QAction *saveAsAct = fileMenu->addAction(saveAsIcon, tr("Save &As..."), this, &MainWindow::saveAs);
     saveAsAct->setShortcuts(QKeySequence::SaveAs);
     saveAsAct->setStatusTip(tr("Save the document under a new name"));
@@ -222,13 +282,14 @@ void MainWindow::createActions()
 
     fileMenu->addSeparator();
 
-    const QIcon exitIcon = QIcon::fromTheme("application-exit");
+    const QIcon exitIcon = QIcon(":images/exit.png");
     QAction *exitAct = fileMenu->addAction(exitIcon, tr("E&xit"), this, &QWidget::close);
     exitAct->setShortcuts(QKeySequence::Quit);
     exitAct->setStatusTip(tr("Exit the application"));
 
-    QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
-    QToolBar *editToolBar = addToolBar(tr("Edit"));
+    /*
+    // QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
+    // QToolBar *editToolBar = addToolBar(tr("Edit"));
     //#ifndef QT_NO_CLIPBOARD
     //    const QIcon cutIcon = QIcon::fromTheme("edit-cut", QIcon(":/images/cut.png"));
     //    QAction *cutAct = new QAction(cutIcon, tr("Cu&t"), this);
@@ -261,10 +322,14 @@ void MainWindow::createActions()
 
     //#endif // !QT_NO_CLIPBOARD
 
-    QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
-    QAction *aboutAct = helpMenu->addAction(tr("&About"), this, &MainWindow::about);
-    aboutAct->setStatusTip(tr("Show the application's About box"));
+    */
 
+    QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
+    QAction *helpAct = helpMenu->addAction(tr("&Help"), this, &MainWindow::help);
+    helpAct->setStatusTip(tr("Show Help"));
+
+    QAction *aboutAct = helpMenu->addAction(tr("&About"), this, &MainWindow::about);
+    aboutAct->setStatusTip(tr("Show the About box"));
 
     QAction *aboutQtAct = helpMenu->addAction(tr("About &Qt"), qApp, &QApplication::aboutQt);
     aboutQtAct->setStatusTip(tr("Show the Qt library's About box"));
@@ -313,10 +378,10 @@ void MainWindow::writeSettings()
 
 
 // ------------------------------------------------------------------------ //
-// Asks if changes need to be saved, and redirects approporately (Needs Modification)
+// Asks if changes need to be saved, and redirects approporately
 bool MainWindow::maybeSave()
 {
-    if (!this->unsavedChanges) // FS: Done
+    if (!this->unsavedChanges)
         return true;
     const QMessageBox::StandardButton ret
             = QMessageBox::warning(this, tr("Application"),
@@ -336,14 +401,9 @@ bool MainWindow::maybeSave()
 
 
 // ------------------------------------------------------------------------ //
-// Loads and sets CSV to table
-void MainWindow::loadCSV(const QString &fileName)
+// Actions to perform after reading CSV
+void MainWindow::loadCSV_actions()
 {
-    resetEverything();
-    statusBar()->showMessage(tr("Loading file..."), 2000); // show number of lines read
-    // Load data from file to memory
-    FSHelper::readCsv(fileName, 1, dfitanalysis->t, dfitanalysis->p, dfitanalysis->r);
-
     // Set data to the table
     for (int i=0; i < dfitanalysis->t.size();++i){
         ui->tableWidget->insertRow(ui->tableWidget->rowCount());
@@ -364,15 +424,11 @@ void MainWindow::loadCSV(const QString &fileName)
     ui->y1maxButton->setEnabled(true);
     ui->y2minButton->setEnabled(true);
     ui->y2maxButton->setEnabled(true);
-
-    statusBar()->showMessage(tr("File loaded and plotted"), 2000); // show number of lines read
-
-    unsavedChanges = true;
 }
 
 
 // ------------------------------------------------------------------------ //
-// Loads file (Needs modification)
+// Loads file
 void MainWindow::loadFile(const QString &fileName)
 {
     QFile file(fileName);
@@ -383,17 +439,128 @@ void MainWindow::loadFile(const QString &fileName)
         return;
     }
 
-    // TODO: Implement reading JSON file
-    // QTextStream in(&file);
+    // Reading the file
+    QTextStream in(&file);
+    QStringList lines = in.readAll().split('\n');
+
+    // Check if actually the DFIT Analysis file was opened
+    if (!(lines[24].contains(versionString))){
+        QMessageBox::warning(this, tr("Application"),
+                             tr("Cannot read file %1:\n%2.")
+                             .arg(QDir::toNativeSeparators(fileName), file.errorString()));
+        return;
+    }
+
+    QString splitChar = ",";
+
+
+    bool istprData = 0;
+
+    struct BCATypes
+    {
+        int bcaType;
+        double tClosure;
+        double pClosure;
+        double xClosure;
+    };
+
+    QVector<BCATypes> bcatypeV;
+
+    for (int i = 25; i < lines.size(); ++i){
+
+        if (lines[i].contains("tinj")){
+            splitChar = " ";
+            auto row_string = lines.at(i).split(splitChar, QString::SkipEmptyParts);
+            dfitanalysis->tp = row_string[1].toDouble();
+        }
+
+        if (lines[i].contains("GFunction")){
+            istprData = 0;
+            bcatypeV.push_back({});
+            bcatypeV.last().bcaType = 0;
+            continue;
+        }
+
+        if (lines[i].contains("SRT")){
+            istprData = 0;
+            bcatypeV.push_back({});
+            bcatypeV.last().bcaType = 1;
+            continue;
+        }
+
+        if (lines[i].contains("tClosure")){
+            splitChar = " ";
+            auto row_string = lines.at(i).split(splitChar, QString::SkipEmptyParts);
+            bcatypeV.last().tClosure = row_string[1].toDouble();
+        }
+
+        if (lines[i].contains("pClosure")){
+            splitChar = " ";
+            auto row_string = lines.at(i).split(splitChar, QString::SkipEmptyParts);
+            bcatypeV.last().pClosure = row_string[1].toDouble();
+        }
+
+        if (lines[i].contains("xClosure")){
+            splitChar = " ";
+            auto row_string = lines.at(i).split(splitChar, QString::SkipEmptyParts);
+            bcatypeV.last().xClosure = row_string[1].toDouble();
+        }
+
+        // Reads tpr data
+        if (lines[i].contains("t, p, r")){
+            istprData = 1;
+            continue;
+        }
+
+        if (istprData){
+            splitChar = ",";
+            auto row_string = lines.at(i).split(splitChar, QString::SkipEmptyParts);
+            if(row_string.size() < 3)
+                continue;
+            dfitanalysis->t.push_back(row_string[0].toDouble());
+            dfitanalysis->p.push_back(row_string[1].toDouble());
+            dfitanalysis->r.push_back(row_string[2].toDouble());
+        }
+    }
 
 #ifndef QT_NO_CURSOR
     QApplication::setOverrideCursor(Qt::WaitCursor);
 #endif
+    // Perform actions for updating the ui
+    this->loadCSV_actions();
+    if (dfitanalysis->tp > 0){
+        this->tinjButton_actions();
+    }
 
+    // Finally show windows etc
+    for (int i=0;i<bcatypeV.size();++i){
+        analysiswindowV.push_back(NULL);
 
-    // TODO: Implement setting data to appropriate places tableview etc
-    //    textEdit->setPlainText(in.readAll()); // Read to something else
+        analysiswindowV.last() = new AnalysisWindow(dfitanalysis, bcatypeV[i].bcaType, analysiswindowV);
+        analysiswindowV.last()->bcanalysis->tClosure = bcatypeV[i].tClosure;
+        analysiswindowV.last()->bcanalysis->pClosure = bcatypeV[i].pClosure;
+        analysiswindowV.last()->bcanalysis->xClosure = bcatypeV[i].xClosure;
 
+        QVector<double> xdata;
+        QVector<double> ydata;
+
+        xdata.push_back(analysiswindowV.last()->bcanalysis->xClosure);
+        xdata.push_back(analysiswindowV.last()->bcanalysis->xClosure);
+
+        ydata.push_back(analysiswindowV.last()->bcanalysis->yaxis2->range().lower);
+        ydata.push_back(analysiswindowV.last()->bcanalysis->yaxis2->range().upper);
+
+        analysiswindowV.last()->bcanalysis->fig->setCurrentLayer("annotations");
+
+        // Show gray vertical line
+        analysiswindowV.last()->vLinePlot_vline(xdata, ydata);
+
+        // Show the closure points
+        analysiswindowV.last()->vLinePlot_label();
+        analysiswindowV.last()->bcanalysis->fig->layer("annotations")-> QCPLayer::replot();
+
+        analysiswindowV.last()->show();
+    }
 
 #ifndef QT_NO_CURSOR
     QApplication::restoreOverrideCursor();
@@ -405,7 +572,7 @@ void MainWindow::loadFile(const QString &fileName)
 
 
 // ------------------------------------------------------------------------ //
-// Saves file (Modification needed)
+// Saves file
 bool MainWindow::saveFile(const QString &fileName)
 {
     QFile file(fileName);
@@ -421,8 +588,39 @@ bool MainWindow::saveFile(const QString &fileName)
 #ifndef QT_NO_CURSOR
     QApplication::setOverrideCursor(Qt::WaitCursor);
 #endif
-    // TODO: Implement writing data to JSON file
-    // out << textEdit->toPlainText();
+
+    // Write file header 23 rows
+    out << headerString;
+
+    // Write save documentation header
+    out << saveDocString << endl;
+
+    // Write version number on line 24 this will be checked when loading
+    out << versionString << endl;
+
+    // Write injection time
+    out << endl << "tinj " << dfitanalysis->tp << endl;
+
+    // Writing t p r table csv
+    out << endl << "t, p, r" << endl;
+    for (unsigned long i=0; i<dfitanalysis->t.size(); ++i){
+        out << dfitanalysis->t[i] << ", "
+            << dfitanalysis->p[i] << ", "
+            << dfitanalysis->r[i] <<endl;
+    }
+
+    // Writing the BCAnalysis closure picks
+    for (int i=0; i<analysiswindowV.size();++i){
+        if (analysiswindowV[i]->selector == 0)
+            out << endl << "GFunction " << endl;
+        if (analysiswindowV[i]->selector == 1)
+            out << endl << "SRT " << endl;
+        out << "  tClosure " << analysiswindowV[i]->bcanalysis->tClosure << endl;
+        out << "  pClosure " << analysiswindowV[i]->bcanalysis->pClosure << endl;
+        out << "  xClosure " << analysiswindowV[i]->bcanalysis->xClosure << endl;
+    }
+
+
 #ifndef QT_NO_CURSOR
     QApplication::restoreOverrideCursor();
 #endif
@@ -438,8 +636,6 @@ bool MainWindow::saveFile(const QString &fileName)
 void MainWindow::setCurrentFile(const QString &fileName)
 {
     curFile = fileName;
-    this->unsavedChanges = false;
-    //    textEdit->document()->setModified(false); // Change this to something else
     this->unsavedChanges = false;
     setWindowModified(false);
 
@@ -481,12 +677,10 @@ void MainWindow::resetEverything()
 {
     // Reset the variables
     dfitanalysis->reset(ui->tprPlot);
-    // Reset the table
-    if(!ui->tableWidget->rowCount()==0)
-        ui->tableWidget->setRowCount(0);
 
-    // Reset plot
-    //ui->tprPlot->plotLayout()->clear();
+    // Reset the table
+    if(!(ui->tableWidget->rowCount()==0))
+        ui->tableWidget->setRowCount(0);
 
     // Reset button states
     ui->tinjButton->setEnabled(false);
@@ -500,11 +694,15 @@ void MainWindow::resetEverything()
     ui->y1maxButton->setEnabled(false);
     ui->y2minButton->setEnabled(false);
     ui->y2maxButton->setEnabled(false);
+
+    // Close all windows
+    while (analysiswindowV.size()>0)
+        analysiswindowV.last()->close();
 }
 
 
 // ------------------------------------------------------------------------ //
-// Actions to take on injection time button clicked
+// Get input from dialog for injection time
 void MainWindow::on_tinjButton_clicked()
 {
     // Make the input dialog
@@ -515,29 +713,40 @@ void MainWindow::on_tinjButton_clicked()
                                          100,
                                          0, dfitanalysis->t.last(), 2,
                                          &ok);
+
+
     // Take appropriate actions
-    if (ok && num > 0){
+    if (ok){
         // Set tp to dialog from dialog
         dfitanalysis->tp = num;
+        tinjButton_actions();
 
-        // Display the tinj on window
-        ui->tinjLabel->setText(QString("   t<sub>inj</sub> = %1 sec").arg(dfitanalysis->tp));
-
-        // Enable G-function etc buttons
-        ui->gButton->setEnabled(true);
-        ui->stButton->setEnabled(true);
-
-        // Binary search for tp_row
-        unsigned long tp_row = FSHelper::find(dfitanalysis->t, dfitanalysis->tp);
-
-        // Get shut-in time and pressure
-        dfitanalysis->tD.clear();
-        dfitanalysis->p_shut.clear();
-        for(int i=tp_row; i<dfitanalysis->t.size(); ++i){
-            dfitanalysis->tD.push_back((dfitanalysis->t[i]-dfitanalysis->tp)/dfitanalysis->tp);
-            dfitanalysis->p_shut.push_back(dfitanalysis->p[i]);
-        }
     }
+}
+
+
+// ------------------------------------------------------------------------ //
+// Actions to take on injection time button clicked
+void MainWindow::tinjButton_actions()
+{
+    // Display the tinj on window
+    ui->tinjLabel->setText(QString("   t<sub>inj</sub> = %1 sec").arg(dfitanalysis->tp));
+
+    // Enable G-function etc buttons
+    ui->gButton->setEnabled(true);
+    ui->stButton->setEnabled(true);
+
+    // Binary search for tp_row
+    unsigned long tp_row = FSHelper::find(dfitanalysis->t, dfitanalysis->tp);
+
+    // Get shut-in time and pressure
+    dfitanalysis->tD.clear();
+    dfitanalysis->p_shut.clear();
+    for(int i=tp_row; i<dfitanalysis->t.size(); ++i){
+        dfitanalysis->tD.push_back((dfitanalysis->t[i]-dfitanalysis->tp)/dfitanalysis->tp);
+        dfitanalysis->p_shut.push_back(dfitanalysis->p[i]);
+    }
+    unsavedChanges = true;
 }
 
 
@@ -546,8 +755,10 @@ void MainWindow::on_tinjButton_clicked()
 void MainWindow::on_gButton_clicked()
 {
     statusBar()->showMessage(tr("Computing G-Function..."), 2000);
-    analysiswindow = new AnalysisWindow::AnalysisWindow(dfitanalysis, 0);
-    analysiswindow->show();
+    analysiswindowV.push_back(NULL);
+    analysiswindowV.last() = new AnalysisWindow(dfitanalysis, 0, analysiswindowV);
+    analysiswindowV.last()->show();
+    unsavedChanges = true;
 }
 
 
@@ -555,9 +766,12 @@ void MainWindow::on_gButton_clicked()
 // Actions to take on SRT function button clicked
 void MainWindow::on_stButton_clicked()
 {
+    // ++numAnalysisWindows;
     statusBar()->showMessage(tr("Computing SRT-Function..."), 2000);
-    analysiswindow = new AnalysisWindow::AnalysisWindow(dfitanalysis, 1);
-    analysiswindow->show();
+    analysiswindowV.push_back(NULL);
+    analysiswindowV.last() = new AnalysisWindow(dfitanalysis, 1, analysiswindowV);
+    analysiswindowV.last()->show();
+    unsavedChanges = true;
 }
 
 

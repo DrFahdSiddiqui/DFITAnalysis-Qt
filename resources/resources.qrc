@@ -1,0 +1,39 @@
+<!--
+*****************************************************************************
+*                                                                           *
+*           DIAGNOSTIC FRACTURE INJECTION TESTS ANALYSIS PROGRAM            *
+*                               Version 1.0                                 *
+*            Written for C++ by : Fahd Siddiqui and Aqsa Qureshi            *
+*             https://github.com/DrFahdSiddiqui/DFITAnalysis-QT             *
+*                                                                           *
+* _________________________________________________________________________ *
+* LICENSE: MOZILLA 2.0                                                      *
+*   This Source Code Form is subject to the terms of the Mozilla Public     *
+*   License, v. 2.0. If a copy of the MPL was not distributed with this     *
+*   file, You can obtain one at http://mozilla.org/MPL/2.0/.                *
+*****************************************************************************
+
+*****************************************************************************
+* DOCUMENTATION                                                             *
+*   Resources file containing paths and names to images                     *
+*****************************************************************************
+
+
+*****************************************************************************
+-->
+
+<RCC>
+    <qresource prefix="/">
+        <file>images/new.png</file>
+        <file>images/open.png</file>
+        <file>images/csv.png</file>
+        <file>images/save.png</file>
+        <file>images/saveas.png</file>
+        <file>images/exit.png</file>
+        <file>images/icon.png</file>
+    </qresource>
+</RCC>
+
+
+
+<!-- ******************************************************************** -->
