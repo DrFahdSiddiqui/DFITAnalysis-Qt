@@ -4,7 +4,7 @@ This program helps with the analysis of Diagnostic Fracture Injection Tests (DFI
 ## How to Use
 
 ### Download
-For Windows 7 to 10, download all files located in release/win32. 
+For Windows 7 to 10, download and unzip [this file]https://github.com/DrFahdSiddiqui/DFITAnalysis-Qt/raw/master/release/PSDFITAnalysisWin32.zip file located release/win32. 
 Run PSDFITAnlaysis.exe.
 
 ### Workflow
@@ -23,19 +23,19 @@ The figures are interactive and display the plot data cursor on mouse over. Figu
 The session is saved by saving all the open windows and data, including the closure analyses to .dft file. Session may be restored alongwith all open windows and analyses results upon loading from the .dft file.
 
 ### Example Well1
-Example of Well1 is included. Either "open" the Well1.dft file, or "open csv" the Well1.csv file.
+Example of Well1 pressure data is included. Either "open" the Well1.dft file, or "load csv" the Well1.csv file.
 ![alt text](example/Well1.jpg)
 ![alt text](example/Well1G.jpg)
 ![alt text](example/Well1S.jpg)
 
 ## Contributing
-Git clone or download all files. Open the DFITAnalysis.pro file with Qt-Creator. Works and tested with 
+Git clone or download all files. Open the DFITAnalysis.pro file with Qt-Creator. Works and tested with following compilers
 1. Clang on Xubuntu (Qt-Creator)
 2. G++ on Xubuntu (Qt-Creator)
 3. MSVC on Windows 7 (Qt-Creator)
 
 ### Open Source
-This program is released as open source under Mozilla Public License (MPL) v2. The complete source code may be obtained from https://github.com/DrFahdSiddiqui/DFITAnalysis-Qt .
+This program is released as open source under Mozilla Public License (MPL) v2. The complete source code may be obtained from https://github.com/DrFahdSiddiqui/DFITAnalysis-Qt.
 
 It uses following:
 1. Qt 5.11 https://www.qt.io/ (GNU GPL v3)
