@@ -4,7 +4,7 @@ This program helps with the analysis of Diagnostic Fracture Injection Tests (DFI
 ## How to Use
 
 ### Download
-For Windows 7 to 10, download and unzip [this file] (https://github.com/DrFahdSiddiqui/DFITAnalysis-Qt/raw/master/release/PSDFITAnalysisWin32.zip) file located release/win32. 
+For Windows 7 to 10, download and unzip [this file](https://github.com/DrFahdSiddiqui/DFITAnalysis-Qt/raw/master/release/PSDFITAnalysisWin32.zip) file located release/win32. 
 Run PSDFITAnlaysis.exe.
 
 ### Workflow
